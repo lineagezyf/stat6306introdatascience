@@ -1,0 +1,17 @@
+---
+title: "DataScienceHW2"
+author: "Yifan Zhong"
+date: "September 7, 2015"
+output: html_document
+---
+
+```{r}
+skills <- c("Programming","Math", "Statistics","Machine Learning","Expertise","Communication","Data viz")
+Ratings <- c(5,4,5,0,2,2,2)
+```
+
+
+```{r, echo=FALSE}
+barplot(Ratings, names.arg = skills,cex.names=0.5,cex.axis=0.7,col=rainbow(7))
+```
+
