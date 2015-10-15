@@ -2,7 +2,9 @@
 title: "Homework 5"
 author: "Yifan Zhong"
 date: "October 14, 2015"
-output: html_document
+output:  
+      html_document:  
+        keep_md: true  
 ---
 #Load packages
 
