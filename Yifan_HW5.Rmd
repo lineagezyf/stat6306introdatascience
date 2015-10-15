@@ -4,7 +4,7 @@ author: "Yifan Zhong"
 date: "October 14, 2015"
 output: html_document
 ---
-Load packages
+#Load packages
 
 ```{r}
 library(doBy)
@@ -22,6 +22,7 @@ Original data sources (if the links above don’t work):
 http://data.worldbank.org/data-catalog/GDP-ranking-table 
 http://data.worldbank.org/data-catalog/ed-stats 
 
+#download dataset
 ```{r}
 gross_url <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2FGDP.csv "
 education_url <- "https://d396qusza40orc.cloudfront.net/getdata%2Fdata%2FEDSTATS_Country.csv"
@@ -32,9 +33,12 @@ colnames(gross) <- c("CountryCode","Ranking","Economy", "GDP")
 education <- read.csv(education_url)
 ```
 
-Questions
-1	Match the data based on the country shortcode. How many of the IDs match? 
-2	Sort the data frame in ascending order by GDP rank (so United States is last). What is the 13th country in the resulting data frame?
+#Questions
+#1	Match the data based on the country shortcode. How many of the IDs match?
+189 data matched
+
+#2	Sort the data frame in ascending order by GDP rank (so United States is last). What is the 13th country in the resulting data frame?
+KNA : St. Kitts and Nevis   
 
 ```{r}
 # Merge data
@@ -52,6 +56,9 @@ data2 <- data2[!is.na(data2$Income.Group),]
 #checking missing values
 sapply(data2,function(var){sum(is.na(var))})
 
+#checking how many obs matched
+dim(data2)
+
 #sort data by GDP
 data2$GDP <- as.numeric(gsub(",","",data2$GDP))
 data2 <- data2[order(data2$GDP,na.last=F),]
@@ -60,14 +67,20 @@ data2 <- data2[order(data2$GDP,na.last=F),]
 data2[13,c("CountryCode","Long.Name","Ranking", "GDP")]
 ```
 
-3	What are the average GDP rankings for the "High income: OECD" and "High income: nonOECD" groups? 
+#3	What are the average GDP rankings for the "High income: OECD" and "High income: nonOECD" groups? 
+       
+
+1 High income: nonOECD  -----  91.91304
+
+2 High income: OECD ----- 32.96667
 
 ```{r}
 q3 <- data2[which(data2$Income.Group %in% c("High income: OECD","High income: nonOECD" )),]
 summaryBy(Ranking~Income.Group, data=q3)
 ```
 
-4	Cut the GDP ranking into 5 separate quantile groups. Make a table versus Income.Group. How many countries are Lower middle income but among the 38 nations with highest GDP?
+#4	Cut the GDP ranking into 5 separate quantile groups. Make a table versus Income.Group. How many countries are Lower middle income but among the 38 nations with highest GDP?
+5 countries are Lower middle income but among the 38 nations with highest GDP
 
 ```{r}
 breakpoint <- quantile(data2$Ranking,probs=seq(0,1,length.out = 6))
