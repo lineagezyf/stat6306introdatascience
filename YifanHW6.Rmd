@@ -1,0 +1,152 @@
+---
+title: "YifanHomework6"
+author: "Yifan Zhong"
+date: "November 18, 2015"
+output: 
+  html_document:
+    keep_md: true
+---
+##Install packages
+```{r library}
+library(Sleuth3) #dataset
+library(doBy) #summaryBy
+library(caret) #confusion table
+library(HiDimDA) #LDA 
+library(klaR) #RDA
+
+library(rpart) #Tree
+library(rattle)					# Fancy tree plot
+library(rpart.plot)				# Enhanced tree plots
+library(RColorBrewer)				# Color selection for fancy tree plot
+```
+
+
+##Data Manipulating
+
+**T**he variable Esteem1 in the data set “ex1223.csv” has values 1, 2, 3, 4 based on the answer to the question “I feel I am a person of worth”
+Construct a new binary variable from this variable, which takes the value 1 for strong agreement and 0 for agreement, disagreement, or strong disagreement.
+
+```{r data}
+selfesteem <- ex1223
+selfesteem$logincome <- log(selfesteem$Income2005)
+selfesteem$male <- 1
+selfesteem$male[which(selfesteem$Gender=="female")] <- 0
+selfesteem$se <- 0
+selfesteem$se[which(selfesteem$Esteem1==1)] <- 1
+selfesteem <- selfesteem[,c("male","AFQT","logincome","Educ","se")]
+selfesteem$se_group <- "Strong Agreement"
+selfesteem$se_group[which(selfesteem$se==0)]<-"Not Strong Agreement"
+selfesteem$se_group <- as.factor(selfesteem$se_group)
+```
+
+**Get the dataset profile.**
+
+```{r data profile}
+head(selfesteem)
+str(selfesteem)
+summaryBy(male+ AFQT + logincome+Educ~se,data=selfesteem)
+```
+
+
+##Split trainning and testing data sets
+
+```{r}
+## 75% to the trainning dataset size
+train_size <- round(0.75 * nrow(selfesteem))
+
+set.seed(1992)
+train_row <- sample(1:nrow(selfesteem), size = train_size)
+
+train <- selfesteem[train_row, ]
+test <- selfesteem[-train_row, ]
+
+#compare train and test
+summaryBy(male+ AFQT + logincome+Educ~se,data=selfesteem)
+summaryBy(male+ AFQT + logincome+Educ~se,data=train)
+summaryBy(male+ AFQT + logincome+Educ~se,data=test)
+#acceptible, no clusters
+```
+
+**B**ased on three tables above, we can see that there is no clusters within trainning or testing data sets. The observations can be seen as being uniformly splited into trainning and testing data sets.
+
+
+##Logistic regression
+
+**Explore the dependence of the probability that a person has positive self-esteem on log annual income (Income2005), intelligence (AFQT), years of education (educ), and gender (data= ex1223.csv)**
+
+```{r logistic regression}
+reg_se <- glm(se ~ male+AFQT+logincome+Educ, data=train,family = "binomial")
+summary(reg_se)
+confint.default(reg_se)
+exp(cbind(OR = coef(reg_se), confint(reg_se)))
+```
+
+**F**rom the outputs above, we see that all the coefficients in the model is statistically significant under alpha level of 0.05, therefore the model is fitted as :
+
+logit(self esteem)=-3.10082 - 0.23415\*male + 0.00733\*AFQT + 0.20792\*logincome + 0.07151\*Educ 
+
+The estimates of parameter associated with odd ratio is the last part of output, for example, the estimated mean of odd ratio for the male is 0.7912 higher than that for the female, and the estimated mean of odd ratio will be 1.2311 higher if the logincome is increased by one unit. 
+
+```{r}
+attach(test)
+pred_reg <- NULL
+pred_reg$logit <- -3.10082 - 0.23415*male + 0.00733*AFQT + 0.20792*logincome + 0.07151*Educ
+pred_reg$or <- exp(pred_reg$logit)
+pred_reg <- data.frame(pred_reg)
+pred_reg$se_group <- "Strong Agreement"
+#odd ratio <1 means pr(Strong)<pr(Not Strong), we can predict it as "Not strong agreement"
+pred_reg$se_group[which(pred_reg$or<1)] <- "Not Strong Agreement"
+pred_reg$se_group <- as.factor(pred_reg$se_group)
+detach(test)
+confusionMatrix(pred_reg$se_group,test$se_group,positive = "Strong Agreement")
+```
+
+**F**rom the confusion table above, we see the logistic regression model, using all the predictors, has **0.6099** accuracy and **0.5573** balanced accuracy on the testing data sets with 95% confidence interval for accuracy is (0.5711, 0.6477).
+
+##LDA classification
+
+```{r LDA}
+ldarule <- Dlda(train[,c(1,2,3,4)],train$se_group)   
+# show classification rule
+print(ldarule)
+# get in-sample classification results
+invisible(pred_lda <- predict(ldarule,test[,c(1,2,3,4)],grpcodes=levels(test$se_group))$class)           	       
+
+confusionMatrix(pred_lda,test$se_group,positive = "Strong Agreement")
+```
+
+**F**rom the output, the LDA method also uses all the predictors in the model. The model has **0.6238** accuracy and **0.5962** balanced accuracy on the testing dataset with 95% confidence interval for accuracy is (0.5852, 0.6613)
+
+##RDA classification
+
+```{r RDA}
+rdarule <- rda(se_group~male+AFQT+logincome+Educ,data=train)
+print(rdarule) 
+pred_rda <- predict(rdarule,test[,c(1,2,3,4)],grpcodes=levels(test$se_group))$class
+confusionMatrix(pred_rda,test$se_group,positive = "Strong Agreement")
+```
+
+**F**rom the output, the RDA method also uses all the predictors in the model. The model has **0.6099** accuracy and **0.5462** balanced accuracy on the testing dataset with 95% confidence interval for accuracy is (0.5711, 0.6477)
+
+##Decesion Tree
+
+```{r Tree, fig.width=13, fig.height=9}
+tree <- rpart(se_group~male+AFQT+logincome+Educ,data=train,method="class")
+par(mar = rep(2, 4))
+fancyRpartPlot(tree)
+print(tree)
+
+pred_tree <- predict(tree,test[,c(1,2,3,4)],grpcodes=levels(test$se_group),type="class")
+
+confusionMatrix(pred_tree,test$se_group,positive = "Strong Agreement")
+```
+
+
+**F**rom the output, the decesion tree method also uses all the predictors in the model. The model has **0.5882** accuracy and **0.5392** balanced accuracy on the testing dataset with 95% confidence interval for accuracy is (0.5492, 0.6265)
+
+##Summary
+
+To summarize, since all the models indicate that all the predictors should be included in the model, we need to obtain all four predictors to fit the model.
+And among Logistic regression, LDA, RDA, Decesion Tree, the LDA method provides the best predictions with **0.6238** accuracy and **0.5962** balanced accuracy on the testing datasets.
+
+Therefore, we prefer to use LDA classifier to do the prediction.
